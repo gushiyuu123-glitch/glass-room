@@ -1,0 +1,176 @@
+.wrap {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 10;
+
+  /* safe-area + 余白 */
+  padding:
+    max(24px, env(safe-area-inset-top))
+    max(18px, env(safe-area-inset-right))
+    max(24px, env(safe-area-inset-bottom))
+    max(18px, env(safe-area-inset-left));
+
+  isolation: isolate;
+
+  /* tweakables */
+  --rise-ms: 680ms;
+  --sink-ms: 1180ms;
+  --ease-rise: cubic-bezier(0.18, 0.72, 0.18, 1);
+  --ease-sink: cubic-bezier(0.16, 0.78, 0.16, 1);
+}
+
+/* テキスト周辺の“読める膜”（やりすぎない） */
+.wrap::before{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%, -52%);
+  width:min(86vw, 940px);
+  height:min(28vh, 240px);
+  background:
+    radial-gradient(closest-side,
+      rgba(0,0,0,.46),
+      rgba(0,0,0,.22) 55%,
+      rgba(0,0,0,0) 100%);
+  filter: blur(18px);
+  opacity: .55;
+  z-index: -1;
+}
+
+.word {
+  margin: 0;
+  max-width: min(88vw, 920px);
+  text-align: center;
+
+  /* balance が効く環境だけ効く */
+  text-wrap: balance;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+
+  line-height: 1.68;
+  letter-spacing: 0.08em;
+
+  font-weight: 300;
+  font-family: "Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", serif;
+
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+
+  text-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.34),
+    0 24px 64px rgba(0, 0, 0, 0.42);
+
+  will-change: opacity, transform, filter;
+}
+
+/* 今の言葉（App側で0.18→0.38の間を作るので、ここではdelayしない） */
+.current {
+  color: rgba(255, 255, 255, 0.94);
+  font-size: clamp(1.18rem, 2vw, 2.05rem);
+
+  opacity: 0;
+  transform: translate3d(0, 16px, 0) scale(0.997);
+  filter: blur(0.16px);
+
+  animation: centerWordRise var(--rise-ms) var(--ease-rise) forwards;
+}
+
+/* ひとつ前：背後に沈む */
+.previous {
+  position: absolute;
+
+  color: rgba(220, 232, 255, 0.24);
+  font-size: clamp(1.02rem, 1.68vw, 1.44rem);
+
+  opacity: 0;
+  transform: translate3d(0, 2px, 0) scale(0.998);
+  filter: blur(0.20px);
+
+  animation: centerWordSink var(--sink-ms) var(--ease-sink) forwards;
+}
+
+/* ✅ “間”：空白が来たら、今の言葉を一瞬だけ沈めて消す */
+.isSilent .current{
+  animation: none;
+  opacity: 0;
+  transform: translate3d(0, 10px, 0) scale(0.996);
+  filter: blur(0.18px);
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease,
+    filter 180ms ease;
+}
+
+@keyframes centerWordRise {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 16px, 0) scale(0.997);
+    filter: blur(0.16px);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes centerWordSink {
+  0% {
+    opacity: 0.26;
+    transform: translate3d(0, 2px, 0) scale(0.998);
+    filter: blur(0.20px);
+  }
+  100% {
+    opacity: 0.12;
+    transform: translate3d(0, 26px, 0) scale(0.994);
+    filter: blur(0.30px);
+  }
+}
+
+@media (max-width: 768px) {
+  .wrap {
+    padding:
+      max(20px, env(safe-area-inset-top))
+      max(16px, env(safe-area-inset-right))
+      max(22px, env(safe-area-inset-bottom))
+      max(16px, env(safe-area-inset-left));
+  }
+
+  .wrap::before{
+    width:min(90vw, 92vw);
+    height:min(26vh, 220px);
+    opacity: .52;
+  }
+
+  .word {
+    max-width: min(90vw, 92vw);
+    line-height: 1.72;
+    letter-spacing: 0.075em;
+  }
+
+  .current {
+    font-size: clamp(1.02rem, 4.9vw, 1.42rem);
+  }
+
+  .previous {
+    font-size: clamp(0.92rem, 3.9vw, 1.10rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .current,
+  .previous {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+
+  .previous {
+    opacity: 0.14;
+  }
+}

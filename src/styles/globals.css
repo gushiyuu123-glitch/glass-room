@@ -1,0 +1,139 @@
+/* ─────────────────────────────
+   globals.css (for full-screen art)
+───────────────────────────── */
+
+:root{
+  /* base */
+  --bg0: #030508;
+  --bg1: rgba(25, 43, 78, 0.18);
+  --bg2: rgba(7, 12, 22, 0.22);
+
+  /* subtle tint */
+  --ink: rgba(255, 255, 255, 0.94);
+
+  /* safe area */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+
+  color-scheme: dark;
+}
+
+html,
+body,
+#root{
+  width: 100%;
+  height: 100%;
+}
+
+/* ✅ 100vh事故回避（iOSアドレスバー） */
+#root{
+  min-height: 100svh;
+  min-height: 100dvh;
+  position: relative;
+  isolation: isolate;
+}
+
+html{
+  background: var(--bg0);
+  -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
+
+  /* タップ時の変な青枠/ハイライト抑制 */
+  -webkit-tap-highlight-color: transparent;
+
+  /* 作品系は“戻る/引っ張り”を止めると安定 */
+  overscroll-behavior: none;
+}
+
+body{
+  margin: 0;
+  overflow: hidden; /* フルスクリーン作品なので固定 */
+
+  background:
+    radial-gradient(circle at 50% 42%, var(--bg1), transparent 34%),
+    radial-gradient(circle at 50% 50%, var(--bg2), transparent 58%),
+    var(--bg0);
+
+  color: var(--ink);
+
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "Hiragino Sans",
+    "Noto Sans JP",
+    sans-serif;
+
+  /* ✅ “像の締まり” */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* ✅ 文字の品（やりすぎない範囲） */
+  font-kerning: normal;
+  font-feature-settings: "kern", "liga", "clig";
+
+  /* スクロールジェスチャの干渉を減らす */
+  touch-action: none;
+}
+
+/* box sizing */
+*,
+*::before,
+*::after{
+  box-sizing: border-box;
+}
+
+/* ✅ 作品なので基本「選択できない」＝触感が良い
+   ただしフォーム/入力は例外にする */
+body, #root{
+  user-select: none;
+}
+:where(input, textarea, button){
+  user-select: auto;
+}
+
+/* Canvas */
+canvas{
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+
+  /* iOSのスクロール/ズーム干渉を切る */
+  touch-action: none;
+
+  /* 背景は必ず透明前提（DOM背景を見せる） */
+  background: transparent !important;
+}
+
+/* 画像ドラッグ禁止（地味に気持ち良くなる） */
+img{
+  -webkit-user-drag: none;
+  user-drag: none;
+  user-select: none;
+}
+
+/* フォーカスリング（キーボード時だけ出す） */
+:focus{
+  outline: none;
+}
+:focus-visible{
+  outline: 2px solid rgba(170, 205, 255, 0.38);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+/* reduced motion */
+@media (prefers-reduced-motion: reduce){
+  html{
+    scroll-behavior: auto;
+  }
+  *{
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}
