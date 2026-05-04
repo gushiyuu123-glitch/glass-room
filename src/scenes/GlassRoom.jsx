@@ -1,9 +1,63 @@
-// src/scenes/GlassRoom.jsx
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Sparkles } from "@react-three/drei";
+import { Sparkles, Environment } from "@react-three/drei";
 import * as THREE from "three";
 import styles from "./GlassRoom.module.css";
+import SpaceDust from "../components/fx/SpaceDust";
+/* ─────────────────────────────────────────────
+   Helpers
+───────────────────────────────────────────── */
+function useCoarsePointer() {
+  const [coarse, setCoarse] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia?.("(pointer: coarse)");
+    if (!mq) return;
+    const update = () => setCoarse(!!mq.matches);
+    update();
+    mq.addEventListener?.("change", update);
+    return () => mq.removeEventListener?.("change", update);
+  }, []);
+  return coarse;
+}
+
+function useReducedMotion() {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    if (!mq) return;
+    const update = () => setReduced(!!mq.matches);
+    update();
+    mq.addEventListener?.("change", update);
+    return () => mq.removeEventListener?.("change", update);
+  }, []);
+  return reduced;
+}
+
+function useInView(ref, threshold = 0.08) {
+  const [inView, setInView] = useState(true);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([entry]) => setInView(!!entry.isIntersecting),
+      { threshold }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [ref, threshold]);
+  return inView;
+}
+
+function usePageVisible() {
+  const [visible, setVisible] = useState(true);
+  useEffect(() => {
+    const on = () => setVisible(!document.hidden);
+    document.addEventListener("visibilitychange", on);
+    on();
+    return () => document.removeEventListener("visibilitychange", on);
+  }, []);
+  return visible;
+}
 
 /* ─────────────────────────────────────────────
    PRNG
@@ -20,7 +74,7 @@ function mulberry32(seed) {
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 
 /* ─────────────────────────────────────────────
-   Geometry — 三角形 65% / 針型 35%
+   Geometry
 ───────────────────────────────────────────── */
 function createShardGeometry(seed = 1) {
   const rand = mulberry32(seed * 9973);
@@ -60,37 +114,39 @@ function createShardGeometry(seed = 1) {
 }
 
 /* ─────────────────────────────────────────────
-   Configs — 分散＆左右バランス（中央に余白）
+   Configs（増量＋中心にも配置）
 ───────────────────────────────────────────── */
-function createShardConfigs(count = 56) {
+function createShardConfigs(count = 96) {
   const rand = mulberry32(20260503);
 
-  const HALF = Math.floor(count / 2);
-  const CENTER_VOID_R = 1.28;
-  const MIN_DIST = 0.78;
+  // 中央にも増やす（全体の約16%を中心クラスタに）
+  const CENTER_EXTRA = Math.min(18, Math.max(10, Math.floor(count * 0.16)));
+  const peripheralCount = Math.max(0, count - CENTER_EXTRA);
 
-  const XR_MIN = 1.05;
-  const XR_MAX = 5.55;
+  // 配置レンジ（少し広げる＆内側も寄せる）
+  const XR_MIN = 0.55, XR_MAX = 6.05;
+  const Y_MIN = -1.70, Y_MAX = 2.55;
+  const Z_MIN = -4.05, Z_MAX = 4.05;
 
-  const Y_MIN = -1.55;
-  const Y_MAX = 2.35;
+  // 破片同士の距離（少し詰める）
+  const MIN_DIST = 0.62;
 
-  const Z_MIN = -3.8;
-  const Z_MAX = 3.8;
+  // 中央の“超小さな”空白（テキストの呼吸だけ確保）
+  const CENTER_VOID_R = 0.22;
 
-  const bases = [];
-
-  const dist2 = (a, b) => {
-    const dx = a.x - b.x;
-    const dy = a.y - b.y;
-    return dx * dx + dy * dy;
-  };
-
+  const dist2 = (a, b) => (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
   const inCenterVoid = (x, y) => Math.sqrt(x * x + y * y) < CENTER_VOID_R;
+
+  /* -------------------------
+     1) Peripheral（左右に広い分布）
+  ------------------------- */
+  const HALF = Math.floor(peripheralCount / 2);
+  const bases = [];
 
   for (let i = 0; i < HALF; i++) {
     let chosen = null;
 
+    // バンドでばらけさせる（SANKOUっぽい面を作る）
     const band = i % 4;
     const bandMin = XR_MIN + (XR_MAX - XR_MIN) * (band / 4);
     const bandMax = XR_MIN + (XR_MAX - XR_MIN) * ((band + 1) / 4);
@@ -99,24 +155,25 @@ function createShardConfigs(count = 56) {
     const rows = Math.ceil(HALF / 4);
     const yBase = Y_MIN + (Y_MAX - Y_MIN) * (row / Math.max(1, rows - 1));
 
-    const tries = 36;
-    for (let t = 0; t < tries; t++) {
+    for (let t = 0; t < 44; t++) {
       let x = bandMin + rand() * (bandMax - bandMin);
       x = Math.max(XR_MIN, x);
 
-      let y = yBase + (rand() - 0.5) * 1.15;
-      y = Math.max(Y_MIN, Math.min(Y_MAX, y));
+      let y = Math.max(
+        Y_MIN,
+        Math.min(Y_MAX, yBase + (rand() - 0.5) * 1.20)
+      );
 
       let z = Z_MIN + rand() * (Z_MAX - Z_MIN);
 
-      if (inCenterVoid(x, y)) x += 0.9;
+      // 中心が空きすぎないよう“押し出し”は弱く
+      if (inCenterVoid(x, y)) x += 0.35;
 
       const cand = { x, y, z };
 
       let ok = true;
       for (let k = 0; k < bases.length; k++) {
-        const need = MIN_DIST * (0.78 + rand() * 0.55);
-        if (dist2(cand, bases[k]) < need * need) {
+        if (dist2(cand, bases[k]) < (MIN_DIST * (0.82 + rand() * 0.45)) ** 2) {
           ok = false;
           break;
         }
@@ -134,49 +191,123 @@ function createShardConfigs(count = 56) {
         y: Y_MIN + rand() * (Y_MAX - Y_MIN),
         z: Z_MIN + rand() * (Z_MAX - Z_MIN),
       };
-      if (inCenterVoid(chosen.x, chosen.y)) chosen.x += 1.0;
+      if (inCenterVoid(chosen.x, chosen.y)) chosen.x += 0.45;
     }
 
     bases.push(chosen);
   }
 
-  const points = [];
+  const peripheralPoints = [];
   for (let i = 0; i < bases.length; i++) {
     const b = bases[i];
 
-    points.push({ x: b.x, y: b.y, z: b.z });
-    points.push({
-      x: -b.x + (rand() - 0.5) * 0.34,
-      y: b.y + (rand() - 0.5) * 0.26,
-      z: b.z + (rand() - 0.5) * 0.46,
+    // 右側
+    peripheralPoints.push({ x: b.x, y: b.y, z: b.z });
+
+    // 左側（ミラー＋微ズレ）
+    peripheralPoints.push({
+      x: -b.x + (rand() - 0.5) * 0.36,
+      y: b.y + (rand() - 0.5) * 0.28,
+      z: b.z + (rand() - 0.5) * 0.52,
     });
   }
 
-  if (points.length < count) {
-    points.push({
-      x: (rand() - 0.5) * 0.6,
-      y: (rand() - 0.5) * 0.9,
+  // peripheralCountが奇数だった場合の補完
+  while (peripheralPoints.length < peripheralCount) {
+    peripheralPoints.push({
+      x: (rand() - 0.5) * 0.85,
+      y: (rand() - 0.5) * 1.15,
       z: Z_MIN + rand() * (Z_MAX - Z_MIN),
     });
   }
+  peripheralPoints.length = peripheralCount;
 
-  const meanX = points.reduce((s, p) => s + p.x, 0) / points.length;
+  /* -------------------------
+     2) Center cluster（中心にも増やす）
+     - ただしテキスト用に“微小な穴”だけ残す
+  ------------------------- */
+  const centerPoints = [];
+  const centerMinR = 0.14;   // ど真ん中は避ける（呼吸）
+  const centerMaxR = 0.95;   // 中央付近に集める
+
+  const okCenter = (cand) => {
+    if (inCenterVoid(cand.x, cand.y)) return false;
+
+    // 中心同士の距離
+    for (let i = 0; i < centerPoints.length; i++) {
+      if (dist2(cand, centerPoints[i]) < (MIN_DIST * 0.58) ** 2) return false;
+    }
+    // peripheralとの距離（近すぎを少し避ける）
+    for (let i = 0; i < peripheralPoints.length; i++) {
+      if (dist2(cand, peripheralPoints[i]) < (MIN_DIST * 0.52) ** 2) return false;
+    }
+    return true;
+  };
+
+  for (let i = 0; i < CENTER_EXTRA; i++) {
+    let chosen = null;
+
+    for (let t = 0; t < 64; t++) {
+      // 半径分布（中心寄りに出るよう sqrt）
+      const rr = centerMinR + Math.sqrt(rand()) * (centerMaxR - centerMinR);
+      const th = rand() * Math.PI * 2;
+
+      const x = Math.cos(th) * rr + (rand() - 0.5) * 0.06;
+      const y = Math.sin(th) * rr + (rand() - 0.5) * 0.06;
+      const z = Z_MIN + rand() * (Z_MAX - Z_MIN);
+
+      const cand = { x, y, z };
+      if (okCenter(cand)) {
+        chosen = cand;
+        break;
+      }
+    }
+
+    if (!chosen) {
+      // 最後の逃げ（多少被ってもOKな救済）
+      const th = rand() * Math.PI * 2;
+      const rr = 0.55 + rand() * 0.35;
+      chosen = { x: Math.cos(th) * rr, y: Math.sin(th) * rr, z: Z_MIN + rand() * (Z_MAX - Z_MIN) };
+    }
+
+    centerPoints.push(chosen);
+  }
+
+  /* -------------------------
+     3) Mix points（中心を先に入れて、確実に“中央密度”を作る）
+  ------------------------- */
+  const points = [...centerPoints, ...peripheralPoints];
+
+  // xの平均を0に寄せる（重心を戻す）
+  const meanX = points.reduce((s, p) => s + p.x, 0) / Math.max(1, points.length);
   for (const p of points) p.x -= meanX;
 
+  /* -------------------------
+     4) Build items
+  ------------------------- */
   const items = [];
   for (let i = 0; i < count; i++) {
-    const p = points[i];
+    const p = points[i] ?? {
+      x: (rand() - 0.5) * 1.6,
+      y: (rand() - 0.5) * 2.0,
+      z: Z_MIN + rand() * (Z_MAX - Z_MIN),
+    };
+
+    // 中央クラスタは「少し小さめ」を多めにして美しく密度を出す
+    const isCenter = i < centerPoints.length;
 
     const r0 = rand();
     let scale;
-    if (r0 < 0.64) scale = 0.44 + rand() * 0.86;
-    else if (r0 < 0.92) scale = 0.92 + rand() * 0.92;
-    else scale = 1.55 + rand() * 1.15;
 
-    const floatAmp = 0.05 + rand() * 0.20;
-    const floatSpeed = 0.22 + rand() * 0.70;
-    const driftAmp = 0.03 + rand() * 0.20;
-    const rotSpeed = 0.32 + rand() * 0.76;
+    if (isCenter) {
+      if (r0 < 0.78) scale = 0.30 + rand() * 0.62;
+      else if (r0 < 0.96) scale = 0.72 + rand() * 0.62;
+      else scale = 1.10 + rand() * 0.70;
+    } else {
+      if (r0 < 0.64) scale = 0.44 + rand() * 0.86;
+      else if (r0 < 0.92) scale = 0.92 + rand() * 0.92;
+      else scale = 1.55 + rand() * 1.15;
+    }
 
     const hue = 0.56 + rand() * 0.10;
     const sat = 0.24 + rand() * 0.22;
@@ -184,7 +315,6 @@ function createShardConfigs(count = 56) {
     const tint = new THREE.Color().setHSL(hue, sat, lit);
 
     const distFromCenter = Math.sqrt(p.x * p.x + p.y * p.y);
-    const entranceDelay = 240 + distFromCenter * 240 + rand() * 220;
 
     items.push({
       id: i,
@@ -194,13 +324,13 @@ function createShardConfigs(count = 56) {
       pz: p.z,
       rotation: [rand() * Math.PI, rand() * Math.PI, rand() * Math.PI],
       scale,
-      floatAmp,
-      floatSpeed,
-      driftAmp,
-      rotSpeed,
+      floatAmp: (isCenter ? 0.045 : 0.05) + rand() * (isCenter ? 0.16 : 0.20),
+      floatSpeed: 0.22 + rand() * 0.70,
+      driftAmp: 0.03 + rand() * 0.20,
+      rotSpeed: 0.32 + rand() * 0.76,
       tint,
       hsl: { h: hue, s: sat, l: lit },
-      entranceDelay,
+      entranceDelay: 220 + distFromCenter * 220 + rand() * 240,
     });
   }
 
@@ -208,12 +338,12 @@ function createShardConfigs(count = 56) {
 }
 
 /* ─────────────────────────────────────────────
-   OrbitLight
+   Lights
 ───────────────────────────────────────────── */
-function OrbitLight() {
+function OrbitLight({ reduced }) {
   const ref = useRef();
   useFrame((state) => {
-    if (!ref.current) return;
+    if (!ref.current || reduced) return;
     const t = state.clock.elapsedTime;
     const orbit = t * 0.07;
     ref.current.position.x = Math.sin(orbit) * 4.6;
@@ -234,15 +364,12 @@ function OrbitLight() {
   );
 }
 
-/* ─────────────────────────────────────────────
-   DeepGlows
-───────────────────────────────────────────── */
-function DeepGlows() {
+function DeepGlows({ reduced }) {
   const r1 = useRef(),
     r2 = useRef(),
     r3 = useRef();
-
   useFrame((state) => {
+    if (reduced) return;
     const t = state.clock.elapsedTime;
     if (r1.current) {
       r1.current.position.x = Math.sin(t * 0.052) * 1.9;
@@ -252,14 +379,13 @@ function DeepGlows() {
     if (r2.current) {
       r2.current.position.x = Math.sin(t * 0.068 + 2.1) * 2.6;
       r2.current.position.y = 0.2 + Math.cos(t * 0.048) * 1.1;
-      r2.current.material.opacity = 0.030 + Math.sin(t * 0.12 + 1.2) * 0.012;
+      r2.current.material.opacity = 0.03 + Math.sin(t * 0.12 + 1.2) * 0.012;
     }
     if (r3.current) {
       r3.current.position.x = Math.sin(t * 0.042 + 4.2) * 1.6;
       r3.current.material.opacity = 0.018 + Math.sin(t * 0.21 + 0.8) * 0.007;
     }
   });
-
   return (
     <group>
       <mesh ref={r1} position={[0, 0.55, -4.5]}>
@@ -277,7 +403,7 @@ function DeepGlows() {
         <meshBasicMaterial
           color="#4488ff"
           transparent
-          opacity={0.030}
+          opacity={0.03}
           blending={THREE.AdditiveBlending}
           depthWrite={false}
         />
@@ -298,9 +424,6 @@ function DeepGlows() {
 
 /* ─────────────────────────────────────────────
    Shard
-   ✅ hover中心を「Raycast一致」にする（誤爆しない）
-   ✅ glow/edgeはraycast無効（誤タップ防止）
-   ✅ outPos に “今の実座標” を書き込む（rippleも正確に）
 ───────────────────────────────────────────── */
 const ENTRANCE_DURATION = 2400;
 const TMP_DIR = new THREE.Vector3();
@@ -313,6 +436,8 @@ function Shard({
   hoverStrengthRef,
   hoveredIndexRef,
   outPos,
+  reduced,
+  coarse,
 }) {
   const groupRef = useRef(null);
   const materialRef = useRef(null);
@@ -333,10 +458,8 @@ function Shard({
 
   useEffect(() => {
     if (!externalPulseRef) return;
-
     externalPulseRef.current = (v = 1, dir = null, kickUp = 0) => {
       pulse.current = Math.max(pulse.current, v);
-
       if (dir) {
         vel.current.addScaledVector(dir, 0.55 * v);
         if (kickUp) vel.current.y += kickUp * v;
@@ -349,7 +472,6 @@ function Shard({
           )
         );
       }
-
       kick.current.add(
         new THREE.Vector3(
           (Math.random() - 0.5) * 0.14,
@@ -358,7 +480,6 @@ function Shard({
         )
       );
     };
-
     return () => {
       externalPulseRef.current = null;
     };
@@ -372,93 +493,73 @@ function Shard({
     const entry = 1 - Math.pow(1 - raw, 5);
 
     const t = state.clock.elapsedTime * cfg.floatSpeed + cfg.seed * 0.75;
+    const motionMul = reduced ? 0.35 : 1;
 
     pulse.current = Math.max(0, pulse.current - delta * 0.95);
 
-    const hoverNear = hoverStrengthRef?.current ?? 0; // ← GlassFieldが制御
-    const hoverHard = hovered.current ? 0.70 : 0;
+    const hoverNear = hoverStrengthRef?.current ?? 0;
+    const hoverHard = hovered.current ? 0.7 : 0;
     const total = pulse.current + hoverNear + hoverHard;
 
-    const hShift =
-      Math.sin(state.clock.elapsedTime * 0.11 + cfg.seed * 0.82) * 0.08;
+    const s = Math.sin(state.clock.elapsedTime * 0.55 + cfg.seed * 1.7);
+    const glint = Math.pow(Math.max(0, s), 10);
+    const hShift = Math.sin(state.clock.elapsedTime * 0.11 + cfg.seed * 0.82) * 0.08;
 
     iriColor.current.setHSL(
       cfg.hsl.h + hShift,
       cfg.hsl.s,
-      Math.min(0.94, cfg.hsl.l + total * 0.09)
+      Math.min(0.94, cfg.hsl.l + total * 0.09 + glint * 0.05)
     );
 
     vel.current.addScaledVector(kick.current, 0.85);
     kick.current.multiplyScalar(0.82);
-
     vel.current.multiplyScalar(0.86);
     offset.current.addScaledVector(vel.current, delta);
-    offset.current.multiplyScalar(0.90);
+    offset.current.multiplyScalar(0.9);
 
-    const nx =
-      cfg.px + Math.sin(t * 0.90) * cfg.driftAmp + offset.current.x;
-    const ny =
-      cfg.py + Math.sin(t * 1.25) * cfg.floatAmp + offset.current.y;
-    const nz =
-      cfg.pz + Math.cos(t * 0.85) * cfg.driftAmp * 0.85 + offset.current.z;
+    const nx = cfg.px + Math.sin(t * 0.9) * cfg.driftAmp * motionMul + offset.current.x;
+    const ny = cfg.py + Math.sin(t * 1.25) * cfg.floatAmp * motionMul + offset.current.y;
+    const nz = cfg.pz + Math.cos(t * 0.85) * cfg.driftAmp * 0.85 * motionMul + offset.current.z;
 
     groupRef.current.position.set(nx, ny, nz);
-
-    // ✅ “今の実座標”を共有（hover/ripple精度が上がる）
     if (outPos) outPos.set(nx, ny, nz);
 
     groupRef.current.scale.setScalar(
       cfg.scale *
         entry *
-        (1 + hoverHard * 0.08 + hoverNear * 0.05 + pulse.current * 0.03)
+        (1 + hoverHard * 0.08 + hoverNear * 0.05 + pulse.current * 0.03 + glint * 0.02)
     );
 
-    const rs = cfg.rotSpeed;
-    groupRef.current.rotation.x =
-      cfg.rotation[0] + Math.sin(t * 0.55 * rs) * 0.22 + total * 0.22;
-    groupRef.current.rotation.y =
-      cfg.rotation[1] + Math.cos(t * 0.48 * rs) * 0.30 + total * 0.30;
-    groupRef.current.rotation.z =
-      cfg.rotation[2] + Math.sin(t * 0.72 * rs) * 0.24 + pulse.current * 0.12;
+    const rs = cfg.rotSpeed * motionMul;
+    groupRef.current.rotation.x = cfg.rotation[0] + Math.sin(t * 0.55 * rs) * 0.22 + total * 0.22;
+    groupRef.current.rotation.y = cfg.rotation[1] + Math.cos(t * 0.48 * rs) * 0.3 + total * 0.3;
+    groupRef.current.rotation.z = cfg.rotation[2] + Math.sin(t * 0.72 * rs) * 0.24 + pulse.current * 0.12;
 
     if (materialRef.current) {
       materialRef.current.emissive.copy(iriColor.current);
-      materialRef.current.emissiveIntensity = 0.06 + total * 0.34;
-      materialRef.current.opacity =
-        (0.18 + total * 0.10) * Math.max(0.12, entry);
-
-      materialRef.current.roughness =
-        0.085 - hoverHard * 0.02 - hoverNear * 0.01;
-      materialRef.current.envMapIntensity = 1.6 + total * 0.55;
+      materialRef.current.emissiveIntensity = 0.06 + total * 0.34 + glint * 0.22;
+      materialRef.current.opacity = (0.18 + total * 0.1 + glint * 0.06) * Math.max(0.12, entry);
+      materialRef.current.roughness = (0.085 - hoverHard * 0.02 - hoverNear * 0.01) + (coarse ? 0.02 : 0);
+      materialRef.current.envMapIntensity = 1.9 + total * 0.65 + glint * 0.35;
+      materialRef.current.thickness = 0.85 + total * 0.15;
     }
     if (glowRef.current) {
       glowRef.current.material.color.copy(iriColor.current);
-      glowRef.current.material.opacity =
-        (0.030 + total * 0.16) * Math.max(0.10, entry);
+      glowRef.current.material.opacity = (0.022 + total * 0.14 + glint * 0.08) * Math.max(0.1, entry);
     }
     if (edgeMatRef.current) {
       edgeMatRef.current.color.copy(iriColor.current);
-      edgeMatRef.current.opacity =
-        (0.06 + total * 0.34) * Math.max(0.10, entry);
+      edgeMatRef.current.opacity = (0.05 + total * 0.3 + glint * 0.16) * Math.max(0.1, entry);
     }
   });
 
   const tap = (e) => {
     e.stopPropagation();
-
-    // ✅ Raycast一致の point（world座標）を使う
     const p = e.point ?? groupRef.current?.position;
     if (p) onTap?.(p.x, p.y, p.z);
-
     pulse.current = 1;
-    vel.current.add(
-      new THREE.Vector3(
-        (Math.random() - 0.5) * 0.55,
-        0.22 + Math.random() * 0.32,
-        (Math.random() - 0.5) * 0.45
-      )
-    );
-    kick.current.add(new THREE.Vector3(0, 0.10, 0));
+    vel.current.add(new THREE.Vector3((Math.random() - 0.5) * 0.55, 0.22 + Math.random() * 0.32, (Math.random() - 0.5) * 0.45));
+    kick.current.add(new THREE.Vector3(0, 0.1, 0));
   };
 
   return (
@@ -469,7 +570,7 @@ function Shard({
       onPointerOver={(e) => {
         e.stopPropagation();
         hovered.current = true;
-        hoveredIndexRef.current = index; // ✅ hover中心は“Raycast一致”
+        hoveredIndexRef.current = index;
         pulse.current = Math.max(pulse.current, 0.35);
         document.body.style.cursor = "pointer";
       }}
@@ -480,22 +581,21 @@ function Shard({
         document.body.style.cursor = "default";
       }}
     >
-      {/* 本体：raycast対象 */}
       <mesh geometry={geometry}>
         <meshPhysicalMaterial
           ref={materialRef}
           color={cfg.tint}
           transparent
           opacity={0.18}
-          transmission={0.92}
-          thickness={0.90}
+          transmission={0.94}
+          thickness={0.9}
           roughness={0.085}
           metalness={0.0}
           ior={1.16}
           reflectivity={1}
           clearcoat={1}
-          clearcoatRoughness={0.10}
-          envMapIntensity={1.6}
+          clearcoatRoughness={0.1}
+          envMapIntensity={1.9}
           emissive={cfg.tint}
           emissiveIntensity={0.06}
           side={THREE.DoubleSide}
@@ -504,60 +604,67 @@ function Shard({
         />
       </mesh>
 
-      {/* glow：見せるけどraycast無効 */}
-      <mesh
-        geometry={geometry}
-        scale={[1.034, 1.034, 1.034]}
-        ref={glowRef}
-        raycast={() => null}
-      >
-        <meshBasicMaterial
-          color={cfg.tint}
-          transparent
-          opacity={0.030}
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-          side={THREE.DoubleSide}
-        />
+      <mesh geometry={geometry} scale={[1.034, 1.034, 1.034]} ref={glowRef} raycast={() => null}>
+        <meshBasicMaterial color={cfg.tint} transparent opacity={0.022} blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} />
       </mesh>
 
-      {/* edge：raycast無効 */}
       <lineSegments geometry={edgesGeo} raycast={() => null}>
-        <lineBasicMaterial
-          ref={edgeMatRef}
-          color="#cfe2ff"
-          transparent
-          opacity={0.10}
-          depthWrite={false}
-        />
+        <lineBasicMaterial ref={edgeMatRef} color="#cfe2ff" transparent opacity={0.1} depthWrite={false} />
       </lineSegments>
     </group>
   );
 }
 
 /* ─────────────────────────────────────────────
-   GlassField
-   ✅ hoverNearは「hoverされた破片」を中心に広げる（mouse中心はやめる）
-   ✅ rippleは“今の実座標”で距離計算（ズレない）
-   ✅ ぴかーん保持
+   GlassField（既存の挙動は維持）
 ───────────────────────────────────────────── */
-function GlassField({ onFragmentTap, mountEl }) {
-  const shards = useMemo(() => createShardConfigs(56), []);
+const LONG_PRESS_MS = 480;
+
+function GlassField({ onFragmentTap, mountEl, coarse, reduced }) {
+  // ✅ ガラス量（PC多め / SP控えめ / reduced控えめ）
+  const shards = useMemo(() => {
+    if (coarse) return createShardConfigs(78);
+    if (reduced) return createShardConfigs(86);
+    return createShardConfigs(96);
+  }, [coarse, reduced]);
+
   const pulseRefs = useMemo(() => shards.map(() => ({ current: null })), [shards]);
   const hoverStrengthRefs = useMemo(() => shards.map(() => ({ current: 0 })), [shards]);
 
-  // ✅ 各破片の“今の実座標”
   const livePosRef = useRef(null);
-  if (!livePosRef.current) {
+  if (!livePosRef.current || livePosRef.current.length !== shards.length) {
     livePosRef.current = shards.map(() => new THREE.Vector3(999, 999, 999));
   }
 
-  // ✅ hoverの中心（Raycast一致）
   const hoveredIndexRef = useRef(-1);
-
   const { camera } = useThree();
+
   const mouse = useRef({ x: 0, y: 0 });
   const camSmooth = useRef({ x: 0, y: 0 });
+
+  const scrollTarget = useRef({ x: 0, y: 0 });
+  const scrollLook = useRef({ x: 0, y: 0 });
+
+  const drag = useRef({
+    active: false,
+    startX: 0,
+    startY: 0,
+    baseX: 0,
+    baseY: 0,
+    x: 0,
+    y: 0,
+    pid: null,
+  });
+  const dragVel = useRef({ x: 0, y: 0 });
+  const dragPrev = useRef({ x: 0, y: 0, ts: 0 });
+
+  const longPress = useRef({
+    timer: null,
+    active: false,
+    strength: 0,
+    startX: 0,
+    startY: 0,
+  });
 
   const lastAction = useRef(Date.now());
   const lastAutoIdx = useRef(-1);
@@ -570,48 +677,211 @@ function GlassField({ onFragmentTap, mountEl }) {
   const burstState = useRef({ active: false, t: 0, pos: new THREE.Vector3() });
 
   useEffect(() => {
-    const el = mountEl?.current || document.documentElement;
-    const setVars = () => {
-      el.style.setProperty("--mx", String(mouse.current.x));
-      el.style.setProperty("--my", String(mouse.current.y));
+    const el = mountEl?.current;
+    if (!el) return;
+
+    const rectNorm = (clientX, clientY) => {
+      const r = el.getBoundingClientRect();
+      const x = ((clientX - r.left) / Math.max(1, r.width)) * 2 - 1;
+      const y = -(((clientY - r.top) / Math.max(1, r.height)) * 2 - 1);
+      return { x: Math.max(-1, Math.min(1, x)), y: Math.max(-1, Math.min(1, y)) };
     };
 
-    const onMove = (e) => {
-      mouse.current.x = (e.clientX / window.innerWidth) * 2 - 1;
-      mouse.current.y = -(e.clientY / window.innerHeight) * 2 + 1;
-      lastAction.current = Date.now();
-      setVars();
-    };
-    const onTouch = (e) => {
-      if (!e.touches?.[0]) return;
-      mouse.current.x = (e.touches[0].clientX / window.innerWidth) * 2 - 1;
-      mouse.current.y = -(e.touches[0].clientY / window.innerHeight) * 2 + 1;
-      lastAction.current = Date.now();
-      setVars();
+    const cancelLongPress = () => {
+      if (longPress.current.timer) {
+        clearTimeout(longPress.current.timer);
+        longPress.current.timer = null;
+      }
+      longPress.current.active = false;
     };
 
-    window.addEventListener("mousemove", onMove, { passive: true });
-    window.addEventListener("touchmove", onTouch, { passive: true });
-    setVars();
+    const startLongPress = (clientX, clientY) => {
+      cancelLongPress();
+      longPress.current.startX = clientX;
+      longPress.current.startY = clientY;
+      longPress.current.timer = setTimeout(() => {
+        longPress.current.active = true;
+        longPress.current.strength = 0;
+        for (let i = 0; i < shards.length; i++) {
+          const delay = i * 18 + Math.random() * 40;
+          setTimeout(() => {
+            pulseRefs[i].current?.(0.45 + Math.random() * 0.3);
+          }, delay);
+        }
+      }, LONG_PRESS_MS);
+    };
+
+    const onPointerMove = (e) => {
+      if (drag.current.active) return;
+      const p = rectNorm(e.clientX, e.clientY);
+      mouse.current.x = p.x;
+      mouse.current.y = p.y;
+      lastAction.current = Date.now();
+
+      if (longPress.current.timer) {
+        const dx = Math.abs(e.clientX - longPress.current.startX);
+        const dy = Math.abs(e.clientY - longPress.current.startY);
+        if (dx > 12 || dy > 12) cancelLongPress();
+      }
+    };
+
+    const onPointerDown = (e) => {
+      drag.current.active = true;
+      drag.current.startX = e.clientX;
+      drag.current.startY = e.clientY;
+      drag.current.baseX = drag.current.x;
+      drag.current.baseY = drag.current.y;
+      drag.current.pid = e.pointerId ?? null;
+
+      dragVel.current = { x: 0, y: 0 };
+      dragPrev.current = { x: drag.current.x, y: drag.current.y, ts: e.timeStamp || performance.now() };
+
+      try {
+        if (drag.current.pid != null) el.setPointerCapture?.(drag.current.pid);
+      } catch {}
+
+      lastAction.current = Date.now();
+      startLongPress(e.clientX, e.clientY);
+    };
+
+    const onPointerDrag = (e) => {
+      if (!drag.current.active) return;
+
+      const dxRaw = (e.clientX - drag.current.startX) / Math.max(1, window.innerWidth);
+      const dyRaw = (e.clientY - drag.current.startY) / Math.max(1, window.innerHeight);
+
+      if (Math.abs(dxRaw) * window.innerWidth > 10 || Math.abs(dyRaw) * window.innerHeight > 10) {
+        cancelLongPress();
+      }
+
+      const nextX = Math.max(-0.9, Math.min(0.9, drag.current.baseX + dxRaw * 2.2));
+      const nextY = Math.max(-0.5, Math.min(0.5, drag.current.baseY - dyRaw * 1.6));
+
+      const now = e.timeStamp || performance.now();
+      const dt = Math.max(16, now - dragPrev.current.ts);
+
+      dragVel.current.x = Math.max(-2.4, Math.min(2.4, (nextX - dragPrev.current.x) / (dt / 1000)));
+      dragVel.current.y = Math.max(-1.8, Math.min(1.8, (nextY - dragPrev.current.y) / (dt / 1000)));
+
+      dragPrev.current = { x: nextX, y: nextY, ts: now };
+      drag.current.x = nextX;
+      drag.current.y = nextY;
+      lastAction.current = Date.now();
+    };
+
+    const onPointerUp = () => {
+      drag.current.active = false;
+      cancelLongPress();
+      try {
+        if (drag.current.pid != null) el.releasePointerCapture?.(drag.current.pid);
+      } catch {}
+      drag.current.pid = null;
+    };
+
+    el.addEventListener("pointermove", onPointerMove, { passive: true });
+    el.addEventListener("pointerdown", onPointerDown, { passive: true });
+    el.addEventListener("pointermove", onPointerDrag, { passive: true });
+    el.addEventListener("pointerup", onPointerUp, { passive: true });
+    el.addEventListener("pointercancel", onPointerUp, { passive: true });
 
     return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("touchmove", onTouch);
+      cancelLongPress();
+      el.removeEventListener("pointermove", onPointerMove);
+      el.removeEventListener("pointerdown", onPointerDown);
+      el.removeEventListener("pointermove", onPointerDrag);
+      el.removeEventListener("pointerup", onPointerUp);
+      el.removeEventListener("pointercancel", onPointerUp);
+    };
+  }, [mountEl, shards, pulseRefs]);
+
+  useEffect(() => {
+    const el = mountEl?.current;
+    if (!el) return;
+
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const r = el.getBoundingClientRect();
+      const vh = window.innerHeight || 1;
+
+      const p = clamp01((vh - r.top) / (vh + r.height));
+
+      const x = (p - 0.5) * 1.4;
+      const y = (0.5 - p) * 0.28;
+
+      scrollTarget.current.x = Math.max(-0.85, Math.min(0.85, x));
+      scrollTarget.current.y = Math.max(-0.4, Math.min(0.4, y));
+    };
+
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(update);
+    };
+
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (raf) cancelAnimationFrame(raf);
     };
   }, [mountEl]);
 
   useFrame((state, delta) => {
     const t = state.clock.elapsedTime;
 
-    // 空間（カメラ）
-    camSmooth.current.x += (mouse.current.x * 0.60 - camSmooth.current.x) * 0.036;
-    camSmooth.current.y += (mouse.current.y * 0.28 - camSmooth.current.y) * 0.036;
+    const sk = 1 - Math.exp(-delta * 7.8);
+    scrollLook.current.x += (scrollTarget.current.x - scrollLook.current.x) * sk;
+    scrollLook.current.y += (scrollTarget.current.y - scrollLook.current.y) * sk;
 
-    camera.position.x = camSmooth.current.x + Math.sin(t * 0.17) * 0.042;
-    camera.position.y = 0.25 + camSmooth.current.y + Math.cos(t * 0.13) * 0.024;
-    camera.lookAt(0, 0.08, 0);
+    if (!drag.current.active) {
+      drag.current.x = Math.max(-0.9, Math.min(0.9, drag.current.x + dragVel.current.x * delta));
+      drag.current.y = Math.max(-0.5, Math.min(0.5, drag.current.y + dragVel.current.y * delta));
+      dragVel.current.x *= Math.exp(-delta * 5.8);
+      dragVel.current.y *= Math.exp(-delta * 5.8);
 
-    // ✅ hoverNear：hover中心からだけ広げる（mouse中心は撤廃）
+      const idle = Date.now() - lastAction.current;
+      if (idle > 1400) {
+        const k = 1 - Math.exp(-delta * 0.85);
+        drag.current.x += (0 - drag.current.x) * k;
+        drag.current.y += (0 - drag.current.y) * k;
+      }
+    }
+
+    if (longPress.current.active) {
+      longPress.current.strength = Math.min(1, longPress.current.strength + delta * 1.2);
+    } else {
+      longPress.current.strength = Math.max(0, longPress.current.strength - delta * 2.0);
+    }
+
+    const lookX = Math.max(-1, Math.min(1, mouse.current.x * 0.45 + scrollLook.current.x + drag.current.x));
+    const lookY = Math.max(-0.85, Math.min(0.85, mouse.current.y * 0.3 + scrollLook.current.y + drag.current.y));
+
+    const host = mountEl?.current;
+    if (host) {
+      host.style.setProperty("--mx", String(lookX));
+      host.style.setProperty("--my", String(lookY));
+    }
+
+    const ampX = coarse ? 0.5 : 0.68;
+    const ampY = coarse ? 0.28 : 0.38;
+    const motionMul = reduced ? 0.4 : 1;
+
+    camSmooth.current.x += (lookX * ampX * motionMul - camSmooth.current.x) * 0.036;
+    camSmooth.current.y += (lookY * ampY * motionMul - camSmooth.current.y) * 0.036;
+
+    const wobbleX = reduced ? 0 : Math.sin(t * 0.17) * 0.042;
+    const wobbleY = reduced ? 0 : Math.cos(t * 0.13) * 0.024;
+
+    camera.position.x = camSmooth.current.x + wobbleX;
+    camera.position.y = 0.25 + camSmooth.current.y + wobbleY;
+    camera.position.z = 6.6 + longPress.current.strength * 1.2;
+
+    camera.lookAt(camSmooth.current.x * 0.12, 0.08 + camSmooth.current.y * 0.06, 0);
+    camera.rotation.z = coarse || reduced ? 0 : camSmooth.current.x * -0.03;
+
     const hi = hoveredIndexRef.current;
     if (hi >= 0) {
       const hp = livePosRef.current[hi];
@@ -625,21 +895,17 @@ function GlassField({ onFragmentTap, mountEl }) {
         const dy = projVec.current.y - projHover.current.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        // 中心を強め、周辺は軽く
         const RADIUS = 0.22;
         const target = dist < RADIUS ? ((RADIUS - dist) / RADIUS) * 0.58 : 0;
-
         hoverStrengthRefs[i].current += (target - hoverStrengthRefs[i].current) * 0.12;
       }
     } else {
-      // hoverしてない時は全部沈める（誤反応ゼロ）
       for (let i = 0; i < shards.length; i++) {
         hoverStrengthRefs[i].current += (0 - hoverStrengthRefs[i].current) * 0.14;
       }
     }
 
-    // 放置時の微オート
-    if (Date.now() - lastAction.current > 9000) {
+    if (!reduced && Date.now() - lastAction.current > 9000) {
       lastAction.current = Date.now() - 5500;
       let idx;
       do idx = Math.floor(Math.random() * shards.length);
@@ -648,7 +914,6 @@ function GlassField({ onFragmentTap, mountEl }) {
       pulseRefs[idx].current?.(0.32);
     }
 
-    // ぴかーん（バーストリング）
     const bs = burstState.current;
     if (bs.active) {
       bs.t = Math.min(1, bs.t + delta * 1.8);
@@ -663,7 +928,7 @@ function GlassField({ onFragmentTap, mountEl }) {
           burstMeshRef.current.scale.setScalar(eased * 4.8);
         }
         if (burstMatRef.current) {
-          burstMatRef.current.opacity = (1 - bs.t) * 0.30;
+          burstMatRef.current.opacity = (1 - bs.t) * 0.3;
         }
       }
     }
@@ -679,65 +944,51 @@ function GlassField({ onFragmentTap, mountEl }) {
     pulseRefs[centerIndex].current?.(1);
 
     const R = 1.85;
-
-    // ✅ “今の実座標”で距離計算（ズレない）
     for (let j = 0; j < shards.length; j++) {
       if (j === centerIndex) continue;
 
-      const lp = livePosRef.current[j]; // world pos (live)
-      const dx = lp.x - cx;
-      const dy = lp.y - cy;
-      const dz = lp.z - cz;
-
+      const lp = livePosRef.current[j];
+      const dx = lp.x - cx,
+        dy = lp.y - cy,
+        dz = lp.z - cz;
       const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
       if (d < R) {
         const n = 1 - d / R;
-        const strength = 0.62 * n;
-
         TMP_DIR.set(dx, dy * 0.85, dz).normalize();
 
-        const delay = 40 + d * 120;
-        window.setTimeout(() => {
-          pulseRefs[j].current?.(strength, TMP_DIR, 0.08);
-        }, delay);
+        setTimeout(() => {
+          pulseRefs[j].current?.(0.62 * n, TMP_DIR, 0.08);
+        }, 40 + d * 120);
       }
     }
   };
 
+  const sparkMul = reduced ? 0.55 : 1;
+
   return (
     <>
       <fog attach="fog" args={["#01030a", 9.5, 21]} />
-
+      <Environment preset="night" background={false} />
       <ambientLight intensity={0.26} />
-      <OrbitLight />
+      <OrbitLight reduced={reduced} />
       <pointLight position={[-3.9, 0.9, -2.2]} color="#5a8fff" intensity={13} distance={15} />
       <pointLight position={[3.2, 1.4, -1.8]} color="#9ac0ff" intensity={11} distance={14} />
       <pointLight position={[0, -2.6, 1.3]} color="#0f1e4a" intensity={7} distance={12} />
+      <DeepGlows reduced={reduced} />
 
-      <DeepGlows />
-
-      <Sparkles count={140} scale={[16, 9, 12]} size={0.9} speed={0.16} opacity={0.26} color="#9ec0ff" />
-      <Sparkles count={60} scale={[22, 11, 9]} size={0.55} speed={0.09} opacity={0.14} color="#6e8bd4" />
-      <Sparkles count={28} scale={[8, 5, 6]} size={2.4} speed={0.04} opacity={0.05} color="#c8d8ff" />
+      <Sparkles count={Math.floor((coarse ? 90 : 160) * sparkMul)} scale={[16, 9, 12]} size={0.9} speed={0.16} opacity={0.26} color="#9ec0ff" />
+      <Sparkles count={Math.floor((coarse ? 40 : 70) * sparkMul)} scale={[22, 11, 9]} size={0.55} speed={0.09} opacity={0.14} color="#6e8bd4" />
+      <Sparkles count={Math.floor((coarse ? 18 : 32) * sparkMul)} scale={[8, 5, 6]} size={2.4} speed={0.04} opacity={0.05} color="#c8d8ff" />
 
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.95, 0]}>
         <circleGeometry args={[14, 80]} />
-        <meshBasicMaterial color="#050710" transparent opacity={0.10} depthWrite={false} />
+        <meshBasicMaterial color="#050710" transparent opacity={0.1} depthWrite={false} />
       </mesh>
 
-      {/* ぴかーん */}
       <mesh ref={burstMeshRef} visible={false}>
         <ringGeometry args={[0.72, 1.02, 72]} />
-        <meshBasicMaterial
-          ref={burstMatRef}
-          color="#b4cfff"
-          transparent
-          opacity={0}
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-          side={THREE.DoubleSide}
-        />
+        <meshBasicMaterial ref={burstMatRef} color="#b4cfff" transparent opacity={0} blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} />
       </mesh>
 
       <group>
@@ -750,6 +1001,8 @@ function GlassField({ onFragmentTap, mountEl }) {
             hoverStrengthRef={hoverStrengthRefs[i]}
             hoveredIndexRef={hoveredIndexRef}
             outPos={livePosRef.current[i]}
+            reduced={reduced}
+            coarse={coarse}
             onTap={(x, y, z) => {
               triggerBurst(x, y, z);
               triggerRipple(i, x, y, z);
@@ -767,6 +1020,13 @@ function GlassField({ onFragmentTap, mountEl }) {
 ───────────────────────────────────────────── */
 export default function GlassRoom({ onFragmentTap, bg = "/images/glass-room-bg.png" }) {
   const mountRef = useRef(null);
+  const coarse = useCoarsePointer();
+  const reduced = useReducedMotion();
+  const inView = useInView(mountRef, 0.08);
+  const pageVisible = usePageVisible();
+  const active = inView && pageVisible;
+
+  const dpr = reduced ? [1, 1.1] : coarse ? [1, 1.25] : [1, 1.8];
 
   return (
     <div ref={mountRef} className={styles.wrap} style={{ "--bg": `url(${bg})` }}>
@@ -775,10 +1035,11 @@ export default function GlassRoom({ onFragmentTap, bg = "/images/glass-room-bg.p
 
       <Canvas
         className={styles.canvas}
-        dpr={[1, 1.8]}
+        frameloop={active ? "always" : "never"}
+        dpr={dpr}
         camera={{ position: [0, 0.25, 6.6], fov: 38 }}
         gl={{
-          antialias: true,
+          antialias: !coarse && !reduced,
           alpha: true,
           premultipliedAlpha: false,
           powerPreference: "high-performance",
@@ -788,11 +1049,12 @@ export default function GlassRoom({ onFragmentTap, bg = "/images/glass-room-bg.p
           gl.outputColorSpace = THREE.SRGBColorSpace;
           gl.toneMapping = THREE.ACESFilmicToneMapping;
           gl.toneMappingExposure = 0.95;
+          gl.physicallyCorrectLights = true;
         }}
       >
-        <GlassField onFragmentTap={onFragmentTap} mountEl={mountRef} />
+        <GlassField onFragmentTap={onFragmentTap} mountEl={mountRef} coarse={coarse} reduced={reduced} />
       </Canvas>
-
+<SpaceDust active={active} intensity={coarse ? 0.85 : 1.0} />
       <div className={styles.grain} aria-hidden="true" />
       <div className={styles.chromatic} aria-hidden="true" />
     </div>

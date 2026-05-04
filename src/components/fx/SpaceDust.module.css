@@ -1,0 +1,79 @@
+/* src/components/fx/SpaceDust.module.css */
+
+.canvas{
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+
+  pointer-events: none;
+  z-index: 3;
+
+  /* === tuning (PC default) === */
+  --dust-opacity: 0.52;
+  --dust-blur: 0.22px;
+
+  opacity: var(--dust-opacity);
+  filter: blur(var(--dust-blur));
+
+  /* iOS/Safari の合成ブレ・チラつき予防 */
+  transform: translate3d(0,0,0);
+  backface-visibility: hidden;
+
+  /* 描画の分離（重なりの事故を減らす） */
+  contain: layout paint size;
+  will-change: transform, opacity;
+}
+
+/* screen が効く環境だけ溶かす（効かない環境で濁る事故を防ぐ） */
+@supports (mix-blend-mode: screen){
+  .canvas{
+    mix-blend-mode: screen;
+  }
+}
+
+/* mix-blend-mode が無い/弱い環境は “通常合成” で薄く（汚れ回避） */
+@supports not (mix-blend-mode: screen){
+  .canvas{
+    opacity: 0.22;
+    filter: blur(0.18px);
+  }
+}
+
+/* スマホ：少し薄く・少し軽く */
+@media (max-width: 768px){
+  .canvas{
+    --dust-opacity: 0.42;
+    --dust-blur: 0.18px;
+  }
+}
+
+/* coarse pointer：さらに控えめ（酔い＆コスト対策） */
+@media (pointer: coarse){
+  .canvas{
+    --dust-opacity: 0.38;
+    --dust-blur: 0.16px;
+  }
+}
+
+/* コントラスト強制環境は“主張”が過剰になりやすいので落とす */
+@media (prefers-contrast: more){
+  .canvas{
+    opacity: 0.28;
+    filter: blur(0.16px);
+  }
+}
+
+/* Windowsの強制配色など：そもそも出さない */
+@media (forced-colors: active){
+  .canvas{
+    display: none;
+  }
+}
+
+/* reduced motion：非表示（ルール通り） */
+@media (prefers-reduced-motion: reduce){
+  .canvas{
+    display: none;
+  }
+}

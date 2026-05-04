@@ -6,7 +6,6 @@
   pointer-events: none;
   z-index: 10;
 
-  /* safe-area + 余白 */
   padding:
     max(24px, env(safe-area-inset-top))
     max(18px, env(safe-area-inset-right))
@@ -15,30 +14,53 @@
 
   isolation: isolate;
 
-  /* tweakables */
-  --rise-ms: 680ms;
+  --rise-ms: 980ms;
   --sink-ms: 1180ms;
-  --ease-rise: cubic-bezier(0.18, 0.72, 0.18, 1);
+  --ease-rise: cubic-bezier(0.14, 0.78, 0.16, 1);
   --ease-sink: cubic-bezier(0.16, 0.78, 0.16, 1);
 }
 
-/* テキスト周辺の“読める膜”（やりすぎない） */
-.wrap::before{
-  content:"";
-  position:absolute;
-  left:50%;
-  top:50%;
-  transform:translate(-50%, -52%);
-  width:min(86vw, 940px);
-  height:min(28vh, 240px);
+/* 中央の読める膜 */
+.wrap::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -52%);
+  width: min(88vw, 980px);
+  height: min(30vh, 260px);
   background:
-    radial-gradient(closest-side,
-      rgba(0,0,0,.46),
-      rgba(0,0,0,.22) 55%,
-      rgba(0,0,0,0) 100%);
-  filter: blur(18px);
-  opacity: .55;
+    radial-gradient(
+      closest-side,
+      rgba(10, 16, 30, 0.54),
+      rgba(10, 16, 30, 0.24) 48%,
+      rgba(10, 16, 30, 0) 100%
+    );
+  filter: blur(22px);
+  opacity: 0.7;
+  z-index: -2;
+}
+
+/* うっすら幻想感 */
+.wrap::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(72vw, 760px);
+  height: min(22vh, 180px);
+  background:
+    radial-gradient(
+      circle,
+      rgba(160, 205, 255, 0.12) 0%,
+      rgba(170, 145, 255, 0.06) 34%,
+      rgba(255, 255, 255, 0) 72%
+    );
+  filter: blur(28px);
+  opacity: 0.62;
   z-index: -1;
+  animation: auraBreath 5.2s ease-in-out infinite;
 }
 
 .word {
@@ -46,12 +68,11 @@
   max-width: min(88vw, 920px);
   text-align: center;
 
-  /* balance が効く環境だけ効く */
   text-wrap: balance;
   white-space: pre-wrap;
   overflow-wrap: break-word;
 
-  line-height: 1.68;
+  line-height: 1.72;
   letter-spacing: 0.08em;
 
   font-weight: 300;
@@ -59,62 +80,229 @@
 
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-
-  text-shadow:
-    0 10px 30px rgba(0, 0, 0, 0.34),
-    0 24px 64px rgba(0, 0, 0, 0.42);
-
   will-change: opacity, transform, filter;
 }
 
-/* 今の言葉（App側で0.18→0.38の間を作るので、ここではdelayしない） */
-.current {
-  color: rgba(255, 255, 255, 0.94);
-  font-size: clamp(1.18rem, 2vw, 2.05rem);
-
-  opacity: 0;
-  transform: translate3d(0, 16px, 0) scale(0.997);
-  filter: blur(0.16px);
-
-  animation: centerWordRise var(--rise-ms) var(--ease-rise) forwards;
+.quote {
+  margin: 0;
+  text-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.34),
+    0 24px 64px rgba(0, 0, 0, 0.44);
 }
 
-/* ひとつ前：背後に沈む */
+/* 作者 */
+.author {
+  margin-top: 14px;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+  font-size: clamp(0.72rem, 1vw, 0.92rem);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(198, 220, 255, 0.42);
+  text-shadow: 0 10px 26px rgba(0, 0, 0, 0.42);
+  -webkit-text-stroke: 0.5px rgba(170, 210, 255, 0.06);
+}
+
+/* current */
+.current {
+  opacity: 1;
+}
+
+.current .quote {
+  font-size: clamp(1.18rem, 2vw, 2.05rem);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.current .author {
+  opacity: 0;
+  transform: translate3d(0, 10px, 0);
+  filter: blur(0.4px);
+  animation: authorRise 900ms cubic-bezier(0.18, 0.72, 0.18, 1) forwards;
+  animation-delay: var(--author-delay, 320ms);
+}
+
+/* previous */
 .previous {
   position: absolute;
-
-  color: rgba(220, 232, 255, 0.24);
-  font-size: clamp(1.02rem, 1.68vw, 1.44rem);
-
   opacity: 0;
   transform: translate3d(0, 2px, 0) scale(0.998);
-  filter: blur(0.20px);
-
+  filter: blur(0.2px);
   animation: centerWordSink var(--sink-ms) var(--ease-sink) forwards;
 }
 
-/* ✅ “間”：空白が来たら、今の言葉を一瞬だけ沈めて消す */
-.isSilent .current{
-  animation: none;
+.previous .quote {
+  color: rgba(220, 232, 255, 0.22);
+  font-size: clamp(1.02rem, 1.68vw, 1.44rem);
+}
+
+.previous .author {
+  color: rgba(180, 205, 255, 0.2);
+  opacity: 0.86;
+  font-size: clamp(0.66rem, 0.92vw, 0.84rem);
+}
+
+/* =========================
+   粒子集合まわり
+========================= */
+
+.charShell {
+  position: relative;
+  display: inline-block;
+  white-space: pre;
+}
+
+.charStatic {
+  display: inline-block;
+  white-space: pre;
+}
+
+.charCore {
+  position: relative;
+  display: inline-block;
+  opacity: 0;
+  transform:
+    translate3d(var(--char-dx), var(--char-dy), 0)
+    rotate(var(--char-rot))
+    scale(var(--char-scale));
+  filter: blur(var(--char-blur));
+  animation: charMaterialize var(--rise-ms) var(--ease-rise) forwards;
+  animation-delay: var(--char-delay);
+  will-change: transform, opacity, filter;
+}
+
+/* 文字の周辺の薄い発光 */
+.charGlow {
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  transform: translate(-50%, -50%) scale(0.4);
+  background:
+    radial-gradient(circle, rgba(188, 224, 255, 0.34), rgba(188, 224, 255, 0) 72%);
+  opacity: 0;
+  filter: blur(8px);
+  mix-blend-mode: screen;
+  animation: glowGather 880ms ease-out forwards;
+  animation-delay: calc(var(--char-delay) + 40ms);
+  pointer-events: none;
+}
+
+/* 粒 */
+.dust {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--dust-size);
+  height: var(--dust-size);
+  border-radius: 999px;
+  pointer-events: none;
+
+  background:
+    radial-gradient(circle,
+      rgba(255,255,255,0.92) 0%,
+      rgba(196,224,255,0.82) 38%,
+      rgba(145,182,255,0.16) 74%,
+      rgba(145,182,255,0) 100%);
+
+  opacity: 0;
+  transform: translate3d(var(--dust-dx), var(--dust-dy), 0) scale(0.25);
+  filter: blur(var(--dust-blur));
+  mix-blend-mode: screen;
+
+  animation: dustGather var(--dust-dur) cubic-bezier(0.14, 0.78, 0.18, 1) forwards;
+  animation-delay: var(--dust-delay);
+  will-change: transform, opacity, filter;
+}
+
+/* silent */
+.isSilent .current {
   opacity: 0;
   transform: translate3d(0, 10px, 0) scale(0.996);
-  filter: blur(0.18px);
+  filter: blur(0.2px);
   transition:
     opacity 180ms ease,
     transform 180ms ease,
     filter 180ms ease;
 }
 
-@keyframes centerWordRise {
+.isSilent .charCore,
+.isSilent .dust,
+.isSilent .charGlow {
+  animation: none;
+  opacity: 0;
+}
+
+/* =========================
+   keyframes
+========================= */
+
+@keyframes charMaterialize {
   0% {
     opacity: 0;
-    transform: translate3d(0, 16px, 0) scale(0.997);
-    filter: blur(0.16px);
+    transform:
+      translate3d(var(--char-dx), var(--char-dy), 0)
+      rotate(var(--char-rot))
+      scale(var(--char-scale));
+    filter: blur(var(--char-blur));
+  }
+  48% {
+    opacity: 0.32;
+  }
+  72% {
+    opacity: 0.86;
+    transform:
+      translate3d(calc(var(--char-dx) * 0.16), calc(var(--char-dy) * 0.16), 0)
+      rotate(calc(var(--char-rot) * 0.18))
+      scale(1.01);
+    filter: blur(0.18px);
   }
   100% {
     opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
     filter: blur(0);
+  }
+}
+
+@keyframes dustGather {
+  0% {
+    opacity: 0;
+    transform: translate3d(var(--dust-dx), var(--dust-dy), 0) scale(0.24);
+    filter: blur(calc(var(--dust-blur) + 1px));
+  }
+  18% {
+    opacity: calc(var(--dust-opacity) * 0.7);
+  }
+  54% {
+    opacity: var(--dust-opacity);
+  }
+  82% {
+    opacity: 0.2;
+    transform: translate3d(
+      calc(var(--dust-dx) * 0.12),
+      calc(var(--dust-dy) * 0.12),
+      0
+    ) scale(1.06);
+    filter: blur(0.18px);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(0.1);
+    filter: blur(0);
+  }
+}
+
+@keyframes glowGather {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.36);
+  }
+  42% {
+    opacity: 0.52;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.3);
   }
 }
 
@@ -122,14 +310,42 @@
   0% {
     opacity: 0.26;
     transform: translate3d(0, 2px, 0) scale(0.998);
-    filter: blur(0.20px);
+    filter: blur(0.2px);
   }
   100% {
     opacity: 0.12;
     transform: translate3d(0, 26px, 0) scale(0.994);
-    filter: blur(0.30px);
+    filter: blur(0.3px);
   }
 }
+
+@keyframes authorRise {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+    filter: blur(0.4px);
+  }
+  100% {
+    opacity: 0.92;
+    transform: translate3d(0, 0, 0);
+    filter: blur(0);
+  }
+}
+
+@keyframes auraBreath {
+  0%, 100% {
+    opacity: 0.52;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    opacity: 0.72;
+    transform: translate(-50%, -50%) scale(1.04);
+  }
+}
+
+/* =========================
+   responsive
+========================= */
 
 @media (max-width: 768px) {
   .wrap {
@@ -140,37 +356,66 @@
       max(16px, env(safe-area-inset-left));
   }
 
-  .wrap::before{
-    width:min(90vw, 92vw);
-    height:min(26vh, 220px);
-    opacity: .52;
+  .wrap::before {
+    width: min(92vw, 92vw);
+    height: min(26vh, 220px);
+    opacity: 0.6;
+  }
+
+  .wrap::after {
+    width: min(82vw, 82vw);
+    height: min(18vh, 150px);
   }
 
   .word {
     max-width: min(90vw, 92vw);
-    line-height: 1.72;
-    letter-spacing: 0.075em;
+    line-height: 1.74;
+    letter-spacing: 0.072em;
   }
 
-  .current {
-    font-size: clamp(1.02rem, 4.9vw, 1.42rem);
+  .current .quote {
+    font-size: clamp(1.02rem, 4.8vw, 1.42rem);
   }
 
-  .previous {
-    font-size: clamp(0.92rem, 3.9vw, 1.10rem);
+  .previous .quote {
+    font-size: clamp(0.92rem, 3.9vw, 1.1rem);
+  }
+
+  .author {
+    margin-top: 12px;
+    letter-spacing: 0.15em;
+  }
+
+  .charGlow {
+    width: 20px;
+    height: 20px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .current,
-  .previous {
+  .wrap::after {
     animation: none;
-    opacity: 1;
-    transform: none;
-    filter: none;
+  }
+
+  .current,
+  .previous,
+  .charCore,
+  .dust,
+  .charGlow,
+  .author {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+
+  .dust,
+  .charGlow {
+    display: none;
   }
 
   .previous {
-    opacity: 0.14;
+    opacity: 0.14 !important;
   }
 }

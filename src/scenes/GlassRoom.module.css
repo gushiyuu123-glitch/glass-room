@@ -4,18 +4,16 @@
   position: relative;
   width: 100%;
   height: 100%;
+  min-height: 100svh;
   overflow: hidden;
   isolation: isolate;
+  contain: paint;
 
-  /* JSが入れる -1..1 */
   --mx: 0;
   --my: 0;
-
-  /* 背景URL */
   --bg: none;
 }
 
-/* 背景（DOM） */
 .bg{
   position: absolute;
   inset: -6%;
@@ -32,10 +30,9 @@
     scale(1.10);
 
   filter: saturate(0.92) contrast(1.06) brightness(0.94);
-  opacity: 0.92; /* ← “消える”のを防ぐ。薄すぎ注意 */
+  opacity: 0.92;
 }
 
-/* 薄膜（暗さの締まりだけ） */
 .bg::before{
   content:"";
   position:absolute;
@@ -43,11 +40,10 @@
   background:
     radial-gradient(900px 520px at 50% 35%, rgba(120,170,255,0.14), transparent 62%),
     radial-gradient(700px 520px at 18% 72%, rgba(255,255,255,0.06), transparent 64%),
-    linear-gradient(180deg, rgba(0,0,0,0.28), rgba(0,0,0,0.72));
+    linear-gradient(180deg, rgba(0,0,0,0.26), rgba(0,0,0,0.74));
   mix-blend-mode: multiply;
 }
 
-/* ビネット */
 .bg::after{
   content:"";
   position:absolute;
@@ -58,24 +54,23 @@
   pointer-events:none;
 }
 
-/* オーロラ（“気配”） */
 .aurora{
   position:absolute;
   inset:-2px;
   z-index: 1;
   pointer-events:none;
   background:
-    radial-gradient(900px 520px at 52% 42%, rgba(90,160,255,0.10), transparent 60%),
-    radial-gradient(700px 460px at 22% 78%, rgba(165,120,255,0.06), transparent 62%),
-    radial-gradient(820px 520px at 78% 72%, rgba(120,210,255,0.05), transparent 64%);
+    radial-gradient(900px 520px at 52% 42%, rgba(90,160,255,0.11), transparent 60%),
+    radial-gradient(700px 460px at 22% 78%, rgba(165,120,255,0.065), transparent 62%),
+    radial-gradient(820px 520px at 78% 72%, rgba(120,210,255,0.055), transparent 64%);
   mix-blend-mode: screen;
-  opacity: 0.75;
+  opacity: 0.78;
   transform:
     translate3d(calc(var(--mx) * 10px), calc(var(--my) * 7px), 0);
   filter: blur(10px);
 }
 
-/* Canvas（最重要：透明で上に） */
+/* Canvas */
 .canvas{
   position: absolute !important;
   inset: 0;
@@ -84,22 +79,20 @@
   touch-action: none;
 }
 
-/* r3f が div+canvas を作る環境もあるので両方潰す */
 .canvas,
 .canvas :global(canvas){
   width: 100% !important;
   height: 100% !important;
   display: block;
-  background: transparent !important; /* ←背景が消える最大原因を潰す */
+  background: transparent !important;
 }
 
-/* 粒子感（上） */
 .grain{
   position:absolute;
   inset:0;
   z-index: 4;
   pointer-events:none;
-  opacity: 0.22;
+  opacity: 0.20;
   background-image:
     radial-gradient(circle at 12% 18%, rgba(255,255,255,0.08), transparent 38%),
     radial-gradient(circle at 72% 64%, rgba(255,255,255,0.06), transparent 44%),
@@ -108,17 +101,37 @@
   filter: blur(0.2px);
 }
 
-/* 色ズレの薄い気配（最上） */
 .chromatic{
   position:absolute;
   inset:0;
   z-index: 5;
   pointer-events:none;
-  opacity: 0.12;
+  opacity: 0.10;
   background:
     radial-gradient(900px 520px at 50% 50%, rgba(255,120,200,0.08), transparent 62%),
     radial-gradient(900px 520px at 52% 52%, rgba(120,190,255,0.08), transparent 62%);
   mix-blend-mode: screen;
+}
+
+@media (pointer: coarse){
+  .canvas{ touch-action: pan-y; }
+
+  .bg{
+    inset: -4%;
+    transform:
+      translate3d(calc(var(--mx) * 10px), calc(var(--my) * 7px), 0)
+      scale(1.06);
+    filter: saturate(0.94) contrast(1.04) brightness(0.96);
+    opacity: 0.94;
+  }
+
+  .aurora{
+    opacity: 0.64;
+    filter: blur(8px);
+  }
+
+  .grain{ opacity: 0.16; }
+  .chromatic{ opacity: 0.08; }
 }
 
 @media (prefers-reduced-motion: reduce){
