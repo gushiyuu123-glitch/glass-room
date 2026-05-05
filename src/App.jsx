@@ -20,229 +20,65 @@ function makeId() {
 
 /**
  * 方針：
- * - UIは足さない（名言と署名だけ）
  * - 名言は“核が伝わる要旨/意訳”中心（誤引用事故を避ける）
- * - 多様性：戦略/心理/創作/決断/習慣/人間関係/回復/仕事
+ * - タグは少数に統一（Work / Strategy / Mind / Craft / Habit / Life / Money）
  */
 const QUOTES = [
-  // Steve Jobs
-  { text: "点でいい。あとで線になる。", author: "Steve Jobs", tag: "Work" },
-  {
-    text: "本当に大事なことに集中するには、捨てる勇気が要る。",
-    author: "Steve Jobs",
-    tag: "Decision",
-  },
-  {
-    text: "完璧は、足した先じゃない。削って残した先だ。",
-    author: "Steve Jobs",
-    tag: "Craft",
-  },
-  {
-    text: "他人の人生を生きるな。自分の声を聞け。",
-    author: "Steve Jobs",
-    tag: "Life",
-  },
+  // --- Work / Craft (削って残す・集中)
+  { text: "点でいい。あとで線になる。", author: "Steve Jobs（要旨）", tag: "Work" },
+  { text: "本当に大事なことに集中するには、捨てる勇気が要る。", author: "Steve Jobs（要旨）", tag: "Strategy" },
+  { text: "完璧は、足した先じゃない。削って残した先だ。", author: "Steve Jobs（要旨）", tag: "Craft" },
+  { text: "他人の人生を生きるな。自分の声を聞け。", author: "Steve Jobs（要旨）", tag: "Life" },
 
-  // Elon Musk
-  {
-    text: "失敗できない場所に、革新は生まれない。",
-    author: "Elon Musk",
-    tag: "Work",
-  },
-  {
-    text: "難しいのは“できるか”じゃない。やり切る設計だ。",
-    author: "Elon Musk",
-    tag: "Strategy",
-  },
-  {
-    text: "批判は宝だ。現実に当たる角度を変えてくれる。",
-    author: "Elon Musk",
-    tag: "Mind",
-  },
+  // --- Mind (視点・思考の更新)
+  { text: "問題は、問題を生んだ視点では解けない。", author: "Albert Einstein（要旨）", tag: "Mind" },
+  { text: "同じやり方を続けて、違う結果は来ない。", author: "Albert Einstein（要旨）", tag: "Mind" },
+  { text: "恐れるより、理解しよう。理解は恐怖を薄くする。", author: "Marie Curie（要旨）", tag: "Mind" },
 
-  // Albert Einstein
-  {
-    text: "問題は、問題を生んだ視点では解けない。",
-    author: "Albert Einstein",
-    tag: "Mind",
-  },
-  {
-    text: "同じやり方を続けて、違う結果は来ない。",
-    author: "Albert Einstein",
-    tag: "Decision",
-  },
-  {
-    text: "想像力は、知識より先に世界を拓く。",
-    author: "Albert Einstein",
-    tag: "Create",
-  },
+  // --- Strategy (勝ち方・設計)
+  { text: "勝つ戦いを選べ。戦わずに勝て。", author: "孫子", tag: "Strategy" },
+  { text: "彼を知り己を知れば、百戦あやうからず。", author: "孫子", tag: "Strategy" },
+  { text: "型は入口。道は、その先に残る。", author: "宮本武蔵（要旨）", tag: "Craft" },
+  { text: "勝つとは、相手より先に自分を整えること。", author: "宮本武蔵（要旨）", tag: "Strategy" },
 
-  // Gustave Le Bon
-  {
-    text: "群衆は理屈で動かない。感情が先、理由は後。",
-    author: "Gustave Le Bon",
-    tag: "Psychology",
-  },
-  {
-    text: "不安が増えるほど、人は“強い言葉”に寄っていく。",
-    author: "Gustave Le Bon",
-    tag: "Psychology",
-  },
-  {
-    text: "多数の正しさは、真実とは別の生き物だ。",
-    author: "Gustave Le Bon",
-    tag: "Mind",
-  },
+  // --- Habit (継続・行動の出し方)
+  { text: "継続は才能じゃない。摩擦を減らした設計だ。", author: "James Clear（要旨）", tag: "Habit" },
+  { text: "やる気は後から来る。行動が先だ。", author: "James Clear（要旨）", tag: "Habit" },
+  { text: "休むのも戦略。燃え尽きは負けだ。", author: "—", tag: "Habit" },
+  { text: "人生は短いのではない。浪費している。", author: "Seneca（要旨）", tag: "Habit" },
 
-  // Sun Tzu
-  {
-    text: "勝つ戦いを選べ。戦わずに勝て。",
-    author: "Sun Tzu",
-    tag: "Strategy",
-  },
-  {
-    text: "彼を知り己を知れば、百戦あやうからず。",
-    author: "Sun Tzu",
-    tag: "Strategy",
-  },
-  { text: "速さは力だ。整って速い者が勝つ。", author: "Sun Tzu", tag: "Work" },
+  // --- Life (意味・軸)
+  { text: "刺激と反応のあいだに、選択がある。", author: "Viktor E. Frankl（要旨）", tag: "Mind" },
+  { text: "意味は“与えられる”のではなく、掴みに行くものだ。", author: "Viktor E. Frankl（要旨）", tag: "Life" },
+  { text: "自分の“なぜ”があれば、多くの“どうやって”は耐えられる。", author: "Nietzsche（要旨）", tag: "Life" },
+  { text: "成功の反対は、何もしないこと。", author: "—", tag: "Life" },
 
-  // Stoics
-  {
-    text: "外ではなく内を整えよ。反応は選べる。",
-    author: "Marcus Aurelius",
-    tag: "Mind",
-  },
-  {
-    text: "変えられないことは受け入れ、変えられることに集中せよ。",
-    author: "Marcus Aurelius",
-    tag: "Decision",
-  },
-  { text: "人生は短いのではない。浪費している。", author: "Seneca", tag: "Habit" },
-  { text: "起きたことではなく、解釈が心を傷つける。", author: "Epictetus", tag: "Mind" },
+  // --- Money (現実・複利)
+  { text: "価格は払うもの。価値は残るもの。", author: "Warren Buffett（要旨）", tag: "Money" },
+  { text: "リスクは“理解してないこと”から来る。", author: "Warren Buffett（要旨）", tag: "Money" },
+  { text: "世の中はノイズだ。重要な少数だけ見ろ。", author: "Charlie Munger（要旨）", tag: "Mind" },
 
-  // Viktor Frankl
-  { text: "刺激と反応のあいだに、選択がある。", author: "Viktor E. Frankl", tag: "Mind" },
-  { text: "意味は“与えられる”のではなく、掴みに行くものだ。", author: "Viktor E. Frankl", tag: "Life" },
+  // --- Famous JP quotes (画像系の強い核)
+  { text: "待っているだけの人達にも、何かが起こるかもしれないが、それは努力した人達の残り物だけである。", author: "Abraham Lincoln", tag: "Work" },
+  { text: "石の上にも三年という。しかし、三年を一年で習得する努力を怠ってはならない。", author: "松下幸之助（要旨）", tag: "Habit" },
+  { text: "踏まれても叩かれても、努力さえしつづけていれば、必ずいつかは実を結ぶ。", author: "井田幸三（要旨）", tag: "Habit" },
+  { text: "目標を達成するには、全力で取り組む以外に方法はない。そこに近道はない。", author: "Michael Jordan（要旨）", tag: "Work" },
+  { text: "1日0.1%の改善でも、1年間続ければ44%もの改善になる。", author: "三木谷浩史（要旨）", tag: "Habit" },
 
-  // Nietzsche
-  { text: "自分の“なぜ”があれば、多くの“どうやって”は耐えられる。", author: "Friedrich Nietzsche", tag: "Life" },
+  // --- Messi / Sakanaction (今回の核)
+  { text: "僕が成功するために17年と114日がかかった。でも、世間はそれを「一夜にして手に入れた成功」と呼ぶんだ。", author: "Lionel Messi（要旨）", tag: "Work" },
+  { text: "本当に夢を叶えるやつって、本気通り越して狂気のやつなんだよね。", author: "山口一郎（要旨）", tag: "Mind" },
+  { text: "わかんねえなっていうぐらいの狂気の人なんだよね。", author: "山口一郎（要旨）", tag: "Mind" },
 
-  // Leonardo da Vinci
-  { text: "観察は、才能を起動する。", author: "Leonardo da Vinci", tag: "Craft" },
-  { text: "複雑さは、削った先で静かに負ける。", author: "Leonardo da Vinci", tag: "Craft" },
-
-  // Marie Curie
-  { text: "恐れるより、理解しよう。理解は恐怖を薄くする。", author: "Marie Curie", tag: "Mind" },
-
-  // Miyamoto Musashi
-  { text: "型は入口。道は、その先に残る。", author: "Miyamoto Musashi", tag: "Craft" },
-  { text: "勝つとは、相手より先に自分を整えること。", author: "Miyamoto Musashi", tag: "Strategy" },
-
-  // Philosophers / Leaders (paraphrase)
-  { text: "自分を知ることが、すべての始まりだ。", author: "Socrates", tag: "Mind" },
-  { text: "習慣は、人格になる。", author: "Aristotle", tag: "Habit" },
-  { text: "目的が定まれば、手段は選べる。", author: "Confucius", tag: "Decision" },
-  { text: "千里の道も、一歩から始まる。", author: "Laozi", tag: "Habit" },
-
-  // Science / Exploration
-  { text: "見えるものは、仮説で変わる。", author: "Charles Darwin", tag: "Mind" },
-  { text: "肩の上に立て。先人の積み重ねを使え。", author: "Isaac Newton", tag: "Work" },
-
-  // Courage / Action
-  { text: "恐れがあるまま進め。勇気は“無怖”じゃない。", author: "Winston Churchill", tag: "Mind" },
-  { text: "遅くてもいい。止まらなければ前に進む。", author: "Nelson Mandela", tag: "Life" },
-  { text: "未来は、今日の選択でできていく。", author: "Abraham Lincoln", tag: "Decision" },
-  { text: "変化は外ではなく、自分から始まる。", author: "Mahatma Gandhi", tag: "Life" },
+  // --- Extra (使える一文だけ残す)
+  { text: "顧客が欲しいのは“商品”じゃない。変化だ。", author: "—", tag: "Work" },
+  { text: "売るとは、価値を翻訳すること。", author: "—", tag: "Work" },
 ];
 
-const MORE_QUOTES = [
-  // ── Psychology / Mind (深め)
-  { text: "現実は、心のレンズで歪む。レンズを疑え。", author: "Carl Jung", tag: "Mind" },
-  { text: "影を否定するほど、影は強くなる。", author: "Carl Jung", tag: "Mind" },
-  { text: "恐怖は未来の物語だ。今の行動に戻れ。", author: "Stoics", tag: "Mind" },
-  { text: "感情は敵じゃない。情報だ。扱い方が問題だ。", author: "Stoics", tag: "Mind" },
-  { text: "人は事実ではなく、解釈で苦しむ。", author: "Stoics", tag: "Mind" },
-  { text: "不安は“準備不足”のサインになることがある。", author: "Psychology", tag: "Mind" },
+// 圧縮版：配列はこれ一本で回す
+const ALL_QUOTES = QUOTES;
 
-  // ── Decision / Strategy (勝ち方)
-  { text: "勝ちは、始める前に決まっている。配置で勝て。", author: "Sun Tzu", tag: "Strategy" },
-  { text: "戦う場所を選べ。正面突破は最後だ。", author: "Sun Tzu", tag: "Strategy" },
-  { text: "選択肢が多いほど、人は動けなくなる。", author: "Daniel Kahneman", tag: "Decision" },
-  { text: "損失の痛みは、利益の喜びより強い。設計で避けろ。", author: "Daniel Kahneman", tag: "Psychology" },
-  { text: "短期の快は、長期の自由を削る。", author: "Stoics", tag: "Decision" },
-  { text: "最強の一手は『やらない』を決めること。", author: "Strategy", tag: "Decision" },
 
-  // ── Work / Craft (作る・磨く)
-  { text: "仕事は、才能より“基準”で決まる。", author: "Peter Drucker", tag: "Work" },
-  { text: "測れないものは改善しにくい。だからまず定義しろ。", author: "Peter Drucker", tag: "Work" },
-  { text: "質は偶然じゃない。設計された結果だ。", author: "Craft", tag: "Craft" },
-  { text: "上達は、派手な一発じゃなく微差の積み重ね。", author: "Kaizen", tag: "Habit" },
-  { text: "プロは気分でやらない。仕組みでやる。", author: "Work", tag: "Habit" },
-  { text: "完成は“十分に削れた”のサインだ。", author: "Design", tag: "Craft" },
-
-  // ── Learning (学び)
-  { text: "学ぶとは、昨日の自分を更新すること。", author: "Learning", tag: "Learning" },
-  { text: "理解したつもりを疑え。説明できるか？", author: "Richard Feynman", tag: "Learning" },
-  { text: "本質は、例外の中に隠れていることがある。", author: "Science", tag: "Learning" },
-  { text: "知識は道具。視点がなければ武器にならない。", author: "Einstein-ish", tag: "Learning" },
-
-  // ── Money / Business (現実に効く)
-  { text: "複利は、時間が味方につく唯一の魔法だ。", author: "Albert Einstein", tag: "Money" },
-  { text: "リスクは“理解してないこと”から来る。", author: "Warren Buffett", tag: "Money" },
-  { text: "価格は払うもの。価値は残るもの。", author: "Warren Buffett", tag: "Money" },
-  { text: "長く持てるものだけ買え。時間で勝て。", author: "Warren Buffett", tag: "Strategy" },
-  { text: "世の中はノイズだ。重要な少数だけ見ろ。", author: "Charlie Munger", tag: "Mind" },
-  { text: "簡単に儲かる話は、だいたい罠だ。", author: "Charlie Munger", tag: "Money" },
-  { text: "顧客が欲しいのは“商品”じゃない。変化だ。", author: "Marketing", tag: "Work" },
-  { text: "売るとは、価値を翻訳すること。", author: "Marketing", tag: "Work" },
-
-  // ── Creativity / Art (作家性)
-  { text: "模倣で学び、統合で自分になる。", author: "Creativity", tag: "Create" },
-  { text: "上手いより、“違う”が残る。", author: "Art", tag: "Create" },
-  { text: "表現は、説明を減らしたところで強くなる。", author: "Art", tag: "Craft" },
-  { text: "最初に決めるべきは“方向”だ。手段は後。", author: "Design", tag: "Decision" },
-  { text: "美しさは、余計なものが無い状態に宿る。", author: "Minimalism", tag: "Craft" },
-
-  // ── Life / Meaning (人生に効く)
-  { text: "人生は一度きりじゃない。“今日”は一度きりだ。", author: "Life", tag: "Life" },
-  { text: "自由は、選ばない勇気から生まれる。", author: "Life", tag: "Decision" },
-  { text: "孤独は敵じゃない。深さの条件だ。", author: "Philosophy", tag: "Life" },
-  { text: "自分に嘘をつくほど、世界が濁る。", author: "Philosophy", tag: "Mind" },
-  { text: "失敗は終わりじゃない。更新ログだ。", author: "Life", tag: "Mind" },
-
-  // ── Relations (人間関係)
-  { text: "境界線は冷たさじゃない。持続の技術だ。", author: "Relationships", tag: "Relations" },
-  { text: "相手を変えるな。距離と環境を変えろ。", author: "Relationships", tag: "Decision" },
-  { text: "合わない場で頑張るほど、あなたが壊れる。", author: "Relationships", tag: "Life" },
-  { text: "承認は短期。尊重は長期。", author: "Relationships", tag: "Relations" },
-
-  // ── Habit / Health (習慣・回復)
-  { text: "継続は才能じゃない。摩擦を減らした設計だ。", author: "James Clear", tag: "Habit" },
-  { text: "やる気は後から来る。行動が先だ。", author: "James Clear", tag: "Habit" },
-  { text: "休むのも戦略。燃え尽きは負けだ。", author: "Work", tag: "Habit" },
-  { text: "睡眠は“明日の脳”を作る作業だ。", author: "Health", tag: "Habit" },
-
-  // ── Japanese greats（要旨）
-  { text: "学びは自分を救う。だから怠るな。", author: "Fukuzawa Yukichi", tag: "Learning" },
-  { text: "志は、環境に負けない芯になる。", author: "Yoshida Shoin", tag: "Life" },
-  { text: "芸術は爆発だ。怖がるな。", author: "Taro Okamoto", tag: "Create" },
-  { text: "道を極めるのは、余計を捨てることでもある。", author: "Zeami", tag: "Craft" },
-
-  // ── Additional modern thinkers（要旨）
-  { text: "大きな賭けは小さく試し、当たったら増やせ。", author: "Nassim Taleb", tag: "Strategy" },
-  { text: "壊れても生き残る設計にしろ。", author: "Nassim Taleb", tag: "Strategy" },
-  { text: "知るべきは“何を知らないか”だ。", author: "Donald Rumsfeld", tag: "Mind" },
-  { text: "完璧を待つと、永遠に始まらない。", author: "Voltaire-ish", tag: "Decision" },
-
-  // ── Calm / Night
-  { text: "静けさは、思考を澄ませる装置だ。", author: "Philosophy", tag: "Mind" },
-  { text: "夜は、余計なものが消える。残るのは核だ。", author: "Philosophy", tag: "Life" },
-  { text: "焦りを消すには、“いま出来る一手”に戻れ。", author: "Strategy", tag: "Mind" },
-];
-
-// ✅ ここが“完全版”の肝：全部まとめる
-const ALL_QUOTES = [...QUOTES, ...MORE_QUOTES];
 
 export default function App() {
   const [quote, setQuote] = useState(() => ({
